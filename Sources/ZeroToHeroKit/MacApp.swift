@@ -29,6 +29,7 @@ struct ZeroToHeroMacApp: App {
                 .environment(model)
                 .frame(minWidth: 980, minHeight: 640)
                 .task { await findCompiler() }
+                .onAppear { Screenshots.sizeWindow() }
         }
         .commands { LessonCommands(model: model) }
 
@@ -49,6 +50,21 @@ struct ZeroToHeroMacApp: App {
         model.runner = LocalRunner(toolchain: toolchain)
         model.runnerState = .ready(toolchain.hasEverything ? "Swift \(toolchain.version) on this Mac, ready to run your code."
                                                          : "Swift \(toolchain.version) on this Mac. The Swift 6.4 lessons need Swift 6.4: update when you can.")
+    }
+}
+
+/// For the App Store's screenshots: with ZTH_SCREENSHOTS=1 the window opens at 1440 by 900 points and code lessons
+/// run as soon as they open.
+enum Screenshots {
+    static let on = ProcessInfo.processInfo.environment["ZTH_SCREENSHOTS"] != nil
+    static func sizeWindow() {
+        guard on else { return }
+        DispatchQueue.main.async {
+            guard let window = NSApp.windows.first(where: { $0.isVisible }) else { return }
+            window.setFrame(NSRect(x: 40, y: 40, width: 1440, height: 900), display: true)
+            NSApp.activate()
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 }
 

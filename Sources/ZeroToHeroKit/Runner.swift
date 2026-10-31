@@ -39,22 +39,46 @@ nonisolated struct Toolchain: Sendable {
     let swiftc: String
     let sdk: String           // the macOS SDK, found once: looking it up on every compile races when several run at once
     let version: String       // like "6.4"
+    /// In the App Sandbox (the Mac App Store build), macOS will not run a program the app has just built, so the
+    /// compiler's interpreter runs the code instead. This is the path to swift-frontend then.
+    var interpreter: String? = nil
 
     var isRecentEnough: Bool { version.compare("6.2", options: .numeric) != .orderedAscending }
     var hasEverything: Bool { version.compare("6.4", options: .numeric) != .orderedAscending }
 
+    static var inSandbox: Bool { ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil }
+
     /// nil when no developer tools are installed. Looking does not trigger Apple's install prompt.
     @concurrent
     static func find() async -> Toolchain? {
+        if inSandbox { return await findInSandbox() }
         guard (try? await Shell.run("/usr/bin/xcode-select", ["-p"], timeout: 10))?.status == 0,
               let found = try? await Shell.run("/usr/bin/xcrun", ["--find", "swiftc"], timeout: 20), found.status == 0 else { return nil }
         let swiftc = found.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let sdkPath = try? await Shell.run("/usr/bin/xcrun", ["--sdk", "macosx", "--show-sdk-path"], timeout: 20), sdkPath.status == 0,
               let v = try? await Shell.run(swiftc, ["--version"], timeout: 20) else { return nil }
         let sdk = sdkPath.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-        let text = v.stdout + v.stderr
-        let version = text.firstMatch(of: /Swift version (\d+\.\d+)/).map { String($0.1) } ?? "?"
-        return Toolchain(swiftc: swiftc, sdk: sdk, version: version)
+        return Toolchain(swiftc: swiftc, sdk: sdk, version: version(v.stdout + v.stderr))
+    }
+
+    /// xcrun refuses to work in the sandbox, so the tools are found where Xcode and the Command Line Tools put them.
+    @concurrent
+    static func findInSandbox() async -> Toolchain? {
+        guard let selected = try? await Shell.run("/usr/bin/xcode-select", ["-p"], timeout: 10), selected.status == 0 else { return nil }
+        let dev = selected.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        let xcode = (bin: dev + "/Toolchains/XcodeDefault.xctoolchain/usr/bin", sdk: dev + "/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
+        let tools = (bin: dev + "/usr/bin", sdk: dev + "/SDKs/MacOSX.sdk")
+        let fm = FileManager.default
+        guard let found = [xcode, tools].first(where: { fm.isExecutableFile(atPath: $0.bin + "/swift-frontend") && fm.fileExists(atPath: $0.sdk) }),
+              let v = try? await Shell.run(found.bin + "/swiftc", ["--version"], timeout: 20) else { return nil }
+        let toolchain = Toolchain(swiftc: found.bin + "/swiftc", sdk: found.sdk, version: version(v.stdout + v.stderr), interpreter: found.bin + "/swift-frontend")
+        // The first run builds the module cache, which takes a while; do it now rather than in the learner's first run
+        _ = await Runner.check(Lesson.warmUp, code: "print(1)", toolchain: toolchain, runTimeout: 120)
+        return toolchain
+    }
+
+    private static func version(_ text: String) -> String {
+        text.firstMatch(of: /Swift version (\d+\.\d+)/).map { String($0.1) } ?? "?"
     }
 }
 
@@ -119,22 +143,26 @@ nonisolated enum Runner {
         }
 
         // Swift 6 with the settings Xcode gives new app projects: the main actor by default
-        let flags = ["-sdk", toolchain.sdk, "-swift-version", "6", "-default-isolation", "MainActor", "-enable-upcoming-feature", "NonisolatedNonsendingByDefault",
-                     "-Onone", "-module-name", "Lesson", "-o", "program", "main.swift"]
-        let compile = try? await Shell.run(toolchain.swiftc, flags, in: dir, timeout: 60)
-        let program = dir.appending(path: "program")
-        guard let compile, compile.status == 0, FileManager.default.fileExists(atPath: program.path) else {
-            result.compiled = false
-            result.timedOut = compile?.timedOut ?? false
-            result.errors = compilerErrors(compile?.stderr ?? "The compiler could not be started.", firstLine: built.firstLine, testStart: built.testStart)
-            for (i, test) in lesson.tests.enumerated() where swiftLeft[i] > 0 || test.checks.contains(where: { $0.kind == .output || $0.kind == .nooutput }) {
-                passed[i] = false
+        let settings = ["-sdk", toolchain.sdk, "-swift-version", "6", "-default-isolation", "MainActor", "-enable-upcoming-feature", "NonisolatedNonsendingByDefault",
+                        "-Onone", "-module-name", "Lesson"]
+        let run: Shell.Output?
+        if let interpreter = toolchain.interpreter {
+            // One step: the interpreter compiles and runs. Compile errors stop it before anything runs.
+            let out = try? await Shell.run(interpreter, ["-frontend", "-interpret", "main.swift"] + settings, in: dir, timeout: runTimeout + 12)
+            if let out, out.status != 0, !out.timedOut, out.stderr.contains(": error: ") {
+                return failedToCompile(lesson, built: built, stderr: out.stderr, timedOut: false, passed: passed, swiftLeft: swiftLeft)
             }
-            result.tests = zip(lesson.tests, passed).map { .init(text: $0.text, passed: $1) }
-            return result
+            run = out
+        } else {
+            let compile = try? await Shell.run(toolchain.swiftc, settings + ["-o", "program", "main.swift"], in: dir, timeout: 60)
+            let program = dir.appending(path: "program")
+            guard let compile, compile.status == 0, FileManager.default.fileExists(atPath: program.path) else {
+                return failedToCompile(lesson, built: built, stderr: compile?.stderr ?? "The compiler could not be started.",
+                                       timedOut: compile?.timedOut ?? false, passed: passed, swiftLeft: swiftLeft)
+            }
+            run = try? await Shell.run(program.path, [], in: dir, timeout: runTimeout)
         }
 
-        let run = try? await Shell.run(program.path, [], in: dir, timeout: runTimeout)
         var shown: [Substring] = []
         for line in (run?.stdout ?? "").split(separator: "\n", omittingEmptySubsequences: false) {
             if line.hasPrefix("\u{1E}\(nonce) ") {
@@ -158,6 +186,19 @@ nonisolated enum Runner {
                 if check.kind == .output, !matches(check.code, in: result.output) { passed[i] = false }
                 if check.kind == .nooutput, matches(check.code, in: result.output) { passed[i] = false }
             }
+        }
+        result.tests = zip(lesson.tests, passed).map { .init(text: $0.text, passed: $1) }
+        return result
+    }
+
+    private static func failedToCompile(_ lesson: Lesson, built: (source: String, firstLine: Int, testStart: Int), stderr: String,
+                                        timedOut: Bool, passed: [Bool], swiftLeft: [Int]) -> RunResult {
+        var result = RunResult(), passed = passed
+        result.compiled = false
+        result.timedOut = timedOut
+        result.errors = compilerErrors(stderr, firstLine: built.firstLine, testStart: built.testStart)
+        for (i, test) in lesson.tests.enumerated() where swiftLeft[i] > 0 || test.checks.contains(where: { $0.kind == .output || $0.kind == .nooutput }) {
+            passed[i] = false
         }
         result.tests = zip(lesson.tests, passed).map { .init(text: $0.text, passed: $1) }
         return result

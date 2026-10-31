@@ -13,10 +13,18 @@ struct CodeEditor: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSTextView.scrollableTextView()
-        let view = scroll.documentView as! NSTextView
-        let editor = SwiftTextView(frame: view.frame, textContainer: view.textContainer)
-        editor.autoresizingMask = view.autoresizingMask
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        // The text view grows down with its text and follows the scroll view's width
+        let editor = SwiftTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 400))
+        editor.minSize = .zero
+        editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        editor.isVerticallyResizable = true
+        editor.isHorizontallyResizable = false
+        editor.autoresizingMask = [.width]
+        editor.textContainer?.widthTracksTextView = true
+        editor.textContainer?.containerSize = NSSize(width: 400, height: CGFloat.greatestFiniteMagnitude)
         scroll.documentView = editor
         editor.delegate = context.coordinator
         editor.isRichText = false
@@ -34,6 +42,8 @@ struct CodeEditor: NSViewRepresentable {
         editor.setAccessibilityLabel("Your Swift code")
         scroll.drawsBackground = true
         scroll.backgroundColor = NSColor(Color.editorBackground)
+        scroll.appearance = NSAppearance(named: .darkAqua)    // the editor is always dark
+        scroll.clipsToBounds = true
         let ruler = LineNumberRuler(textView: editor)
         scroll.verticalRulerView = ruler
         scroll.hasVerticalRuler = true
@@ -128,6 +138,7 @@ final class LineNumberRuler: NSRulerView {
         super.init(scrollView: textView.enclosingScrollView, orientation: .verticalRuler)
         clientView = textView
         ruleThickness = 40
+        clipsToBounds = true
         NotificationCenter.default.addObserver(self, selector: #selector(redraw), name: NSView.boundsDidChangeNotification, object: textView.enclosingScrollView?.contentView)
     }
     required init(coder: NSCoder) { fatalError("not used") }
@@ -135,8 +146,9 @@ final class LineNumberRuler: NSRulerView {
     @objc private func redraw() { needsDisplay = true }
 
     override func drawHashMarksAndLabels(in rect: NSRect) {
+        // Views no longer clip to their bounds by default: fill only the ruler, or it paints over the code
         NSColor(Color.editorBackground).setFill()
-        rect.fill()
+        rect.intersection(bounds).fill()
         guard let textView, let layout = textView.layoutManager, let container = textView.textContainer else { return }
         let text = textView.string as NSString
         let visible = textView.visibleRect

@@ -4,6 +4,8 @@
 #   tools/build-app.sh                 build, sign and make the DMG
 #   NOTARY_PROFILE=asteria tools/build-app.sh
 #                                      also notarize and staple (see README: Signing and notarizing)
+#   STORE=1 tools/build-app.sh           the Mac App Store build instead: sandboxed, signed with Apple Distribution,
+#                                      as build/appstore/Swift-Zero-to-Hero-<version>.pkg (see README: Mac App Store)
 #
 # Signing: uses SIGN_IDENTITY if set, else the first "Developer ID Application" certificate in the keychain, else an
 # ad-hoc signature (fine on this Mac, but other Macs will warn). The app runs with the hardened runtime.
@@ -14,6 +16,10 @@ BUNDLE_ID="technology.asteria.zerotohero"
 VERSION="${VERSION:-$(cat VERSION)}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 OUT=build
+[ -n "${STORE:-}" ] && OUT=build/appstore
+TEAM_ID="${TEAM_ID:-KZFR2T5L2A}"
+SIGNING="$HOME/Library/Application Support/Asteria Signing"
+PROFILE="${PROFILE:-$SIGNING/zerotohero-macappstore.provisionprofile}"
 APP="$OUT/$APP_NAME.app"
 
 # Without full Xcode, SwiftUI's macros are missing from the macOS 27 SDK, so build against 26.5 (the app needs 26 anyway)
@@ -49,12 +55,40 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
   <key>LSMinimumSystemVersion</key><string>26.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
-  <key>NSHumanReadableCopyright</key><string>Asteria Technology. Free and open source under the Asteria License.</string>
+  <key>NSHumanReadableCopyright</key><string>© 2026 Asteria Technology. Open source under the Asteria License.</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSSupportsAutomaticTermination</key><true/>
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
 </dict>
 </plist>
 PLIST
+
+if [ -n "${STORE:-}" ]; then
+  # The App Store wants the sandbox. Exercises still run: the app uses the compiler's interpreter there (see Runner.swift)
+  [ -f "$PROFILE" ] || { echo "Missing the Mac App Store provisioning profile at $PROFILE"; exit 1; }
+  cp "$PROFILE" "$APP/Contents/embedded.provisionprofile"
+  ENT="$OUT/entitlements.plist"
+  cat > "$ENT" <<ENTS
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.app-sandbox</key><true/>
+  <key>com.apple.application-identifier</key><string>$TEAM_ID.$BUNDLE_ID</string>
+  <key>com.apple.developer.team-identifier</key><string>$TEAM_ID</string>
+</dict>
+</plist>
+ENTS
+  APP_ID="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning | grep -m1 -E '"(Apple Distribution|3rd Party Mac Developer Application)' | sed -E 's/.*"(.*)"/\1/')}"
+  PKG_ID="$(security find-identity -v | grep -m1 -E '"(3rd Party Mac Developer Installer|Mac Installer Distribution)' | sed -E 's/.*"(.*)"/\1/')"
+  echo "Signing with $APP_ID"
+  codesign --force --options runtime --timestamp --entitlements "$ENT" --sign "$APP_ID" "$APP"
+  codesign --verify --deep --strict --verbose=1 "$APP"
+  PKG="$OUT/Swift-Zero-to-Hero-$VERSION.pkg"
+  productbuild --component "$APP" /Applications --sign "$PKG_ID" --timestamp "$PKG"
+  echo "Built $PKG (upload it with: xcrun altool --upload-package, or the Transporter app)"
+  exit 0
+fi
 
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | grep -m1 'Developer ID Application' | sed -E 's/.*"(.*)"/\1/' || true)}"
 if [ -n "$IDENTITY" ]; then

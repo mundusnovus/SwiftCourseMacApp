@@ -107,7 +107,17 @@ struct CodeLessonView: View {
             }
             #endif
         }
-        .onAppear { code = model.progress.code(for: lesson) }
+        .onAppear {
+            code = model.progress.code(for: lesson)
+            #if os(macOS)
+            if Screenshots.on {
+                Task {
+                    while model.runner == nil { try? await Task.sleep(for: .milliseconds(200)) }
+                    run()
+                }
+            }
+            #endif
+        }
         .onChange(of: code) { _, new in model.progress.setCode(new, for: lesson.id) }
         .focusedSceneValue(\.runAction, RunAction(run: run))
         .focusedSceneValue(\.resetAction, ResetAction(reset: reset))

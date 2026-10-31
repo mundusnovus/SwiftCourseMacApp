@@ -46,7 +46,7 @@ struct CourseSidebar: View {
         @Bindable var model = model
         List(selection: $model.selection) {
             Button { model.open(nil) } label: {
-                Label("Swift: Zero to Hero", systemImage: "house")
+                Label { Text("Swift: Zero to Hero") } icon: { Image(systemName: "house").foregroundStyle(Color.asSea) }
             }
             .buttonStyle(.plain)
             ForEach(Array(model.course.chapters.enumerated()), id: \.offset) { ci, chapter in
@@ -142,7 +142,7 @@ struct HomeView: View {
                         }
                     }
                 }
-                Text("Made by Asteria Technology. Free and open source.").font(.footnote).foregroundStyle(.tertiary).padding(.top, 12)
+                Text("Made by Asteria Technology. Open source.").font(.footnote).foregroundStyle(.tertiary).padding(.top, 12)
             }
             .padding(40)
             .frame(maxWidth: 900, alignment: .leading)
@@ -164,9 +164,15 @@ struct RunnerStatus: View {
             VStack(alignment: .leading, spacing: 10) {
                 Label(why, systemImage: "exclamationmark.triangle").foregroundStyle(Color.asAlert)
                 #if os(macOS)
-                Button("Install the Command Line Tools") { InstallTools.start() }.buttonStyle(.glass)
-                Text("Apple's free installer opens. When it finishes, quit and reopen this app. Xcode works too.")
-                    .font(.callout).foregroundStyle(.secondary)
+                if Toolchain.inSandbox {
+                    Button("Get Xcode from the App Store") { InstallTools.openXcode() }.buttonStyle(.glass)
+                    Text("Xcode is free. When it is installed, open it once, then quit and reopen this app.")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Button("Install the Command Line Tools") { InstallTools.start() }.buttonStyle(.glass)
+                    Text("Apple's free installer opens. When it finishes, quit and reopen this app. Xcode works too.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
                 #endif
             }
             .padding(16)
@@ -182,6 +188,9 @@ enum InstallTools {
         p.executableURL = URL(fileURLWithPath: "/usr/bin/xcode-select")
         p.arguments = ["--install"]
         try? p.run()
+    }
+    static func openXcode() {
+        NSWorkspace.shared.open(URL(string: "macappstore://apps.apple.com/app/xcode/id497799835")!)
     }
 }
 #endif

@@ -72,6 +72,10 @@ nonisolated struct Lesson: Decodable, Sendable, Identifiable, Hashable {
 
     var hasCode: Bool { !tests.isEmpty }
 
+    /// A lesson with no tests, run once to warm up the compiler.
+    static let warmUp = Lesson(id: "warm-up", title: "", type: .lesson, minutes: 0, description: [], instructions: [], seed: nil,
+                               tests: [], hints: [], checklist: [], questions: [])
+
     static func == (a: Lesson, b: Lesson) -> Bool { a.id == b.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
@@ -137,6 +141,17 @@ extension Course {
     /// The course shipped inside the app (or the repository's Resources when running from the package).
     static func load() throws -> Course {
         guard let url = Resources.url("course.json") else { throw LoadError.missing }
-        return try JSONDecoder().decode(Course.self, from: Data(contentsOf: url))
+        var text = try String(contentsOf: url, encoding: .utf8)
+        for (web, app) in appWording { text = text.replacingOccurrences(of: web, with: app) }
+        return try JSONDecoder().decode(Course.self, from: Data(text.utf8))
     }
+
+    /// The course is written for the website; these phrases read right in the app instead.
+    static let appWording = [
+        ("right here in your browser", "right here in the app"),
+        ("this site's exercises", "this app's exercises"),
+        ("the editor on this site", "the editor in this app"),
+        ("the exercises on this site", "the exercises in this app"),
+        ("Every lesson on this site", "Every lesson in this app"),
+    ]
 }
