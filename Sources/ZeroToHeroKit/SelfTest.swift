@@ -1,6 +1,7 @@
 // `ZeroToHero --self-test [solutions.json]` checks the app's runner the way Asteria Learn checks its server: every
 // lesson's solution must pass its tests and every starting point must not, compiled with this Mac's Swift. It also
 // checks crashes, endless loops and compiler errors are reported. Exits 0 when everything passes.
+#if os(macOS)
 import Foundation
 
 enum SelfTest {
@@ -66,3 +67,4 @@ enum SelfTest {
         return 1
     }
 }
+#endif

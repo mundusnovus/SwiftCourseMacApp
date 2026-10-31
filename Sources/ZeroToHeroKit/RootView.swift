@@ -41,6 +41,7 @@ public struct RootView: View {
 struct CourseSidebar: View {
     @Environment(AppModel.self) private var model
     @State private var expanded: Set<String> = []
+    @State private var showSettings = false
 
     var body: some View {
         @Bindable var model = model
@@ -72,6 +73,15 @@ struct CourseSidebar: View {
             }
         }
         .listStyle(.sidebar)
+        #if os(iOS)
+        .navigationTitle("Zero to Hero")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Settings", systemImage: "gearshape") { showSettings = true }
+            }
+        }
+        .sheet(isPresented: $showSettings) { IOSSettingsView() }
+        #endif
         .onAppear { if let id = model.selection, let m = model.course.module(of: id) { expanded.insert(m.module.id) } }
         .onChange(of: model.selection) { _, id in
             if let id, let m = model.course.module(of: id) { expanded.insert(m.module.id) }

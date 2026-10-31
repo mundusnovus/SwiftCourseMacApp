@@ -88,6 +88,9 @@ struct CodeLessonView: View {
     @State private var problem: String?
     @State private var hintsShown = 0
     @State private var showingCode = false   // iPhone: which half is on screen
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
 
     var body: some View {
         Group {
@@ -97,26 +100,34 @@ struct CodeLessonView: View {
                 workspace.frame(minWidth: 380)
             }
             #else
-            VStack(spacing: 0) {
-                Picker("Show", selection: $showingCode) {
-                    Text("Lesson").tag(false)
-                    Text("Code").tag(true)
+            if sizeClass == .regular {
+                // iPad: the lesson and the code side by side, like the Mac
+                HStack(spacing: 0) {
+                    instructions.frame(maxWidth: .infinity)
+                    Divider()
+                    workspace.frame(maxWidth: .infinity)
                 }
-                .pickerStyle(.segmented).padding()
-                if showingCode { workspace } else { instructions }
+            } else {
+                VStack(spacing: 0) {
+                    Picker("Show", selection: $showingCode) {
+                        Text("Lesson").tag(false)
+                        Text("Code").tag(true)
+                    }
+                    .pickerStyle(.segmented).padding()
+                    if showingCode { workspace } else { instructions }
+                }
             }
             #endif
         }
         .onAppear {
             code = model.progress.code(for: lesson)
-            #if os(macOS)
             if Screenshots.on {
+                showingCode = true
                 Task {
                     while model.runner == nil { try? await Task.sleep(for: .milliseconds(200)) }
                     run()
                 }
             }
-            #endif
         }
         .onChange(of: code) { _, new in model.progress.setCode(new, for: lesson.id) }
         .focusedSceneValue(\.runAction, RunAction(run: run))
