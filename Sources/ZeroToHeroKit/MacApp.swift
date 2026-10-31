@@ -1,0 +1,103 @@
+// The Mac app: one window with the course, a Lesson menu, and Settings. It compiles exercises with the Swift on this
+// Mac, so nothing leaves the computer and it works offline.
+#if os(macOS)
+import SwiftUI
+
+public enum ZeroToHero {
+    /// Starts the Mac app, or with `--self-test`, checks the runner against every lesson and exits.
+    public static func main() async {
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--self-test") {
+            exit(await SelfTest.run(solutionsPath: args.indices.contains(i + 1) ? args[i + 1] : nil))
+        }
+        ZeroToHeroMacApp.main()
+    }
+}
+
+struct ZeroToHeroMacApp: App {
+    @State private var model: AppModel
+
+    init() {
+        _ = Fonts.registered
+        guard let course = try? Course.load() else { fatalError("The course is missing from the app.") }
+        _model = State(initialValue: AppModel(course: course))
+    }
+
+    var body: some Scene {
+        WindowGroup("Swift: Zero to Hero", id: "course") {
+            RootView()
+                .environment(model)
+                .frame(minWidth: 980, minHeight: 640)
+                .task { await findCompiler() }
+        }
+        .commands { LessonCommands(model: model) }
+
+        Settings {
+            SettingsView().environment(model)
+        }
+    }
+
+    func findCompiler() async {
+        guard let toolchain = await Toolchain.find() else {
+            model.runnerState = .unavailable("This Mac has no Swift compiler yet. The exercises need Apple's free Command Line Tools, or Xcode.")
+            return
+        }
+        guard toolchain.isRecentEnough else {
+            model.runnerState = .unavailable("This Mac has Swift \(toolchain.version). The exercises need Swift 6.2 or later: update Xcode or the Command Line Tools in Software Update.")
+            return
+        }
+        model.runner = LocalRunner(toolchain: toolchain)
+        model.runnerState = .ready(toolchain.hasEverything ? "Swift \(toolchain.version) on this Mac, ready to run your code."
+                                                         : "Swift \(toolchain.version) on this Mac. The Swift 6.4 lessons need Swift 6.4: update when you can.")
+    }
+}
+
+struct LessonCommands: Commands {
+    let model: AppModel
+    @FocusedValue(\.runAction) private var runAction
+    @FocusedValue(\.resetAction) private var resetAction
+
+    var body: some Commands {
+        CommandMenu("Lesson") {
+            Button("Run") { runAction?.run() }
+                .keyboardShortcut(.return, modifiers: .command)
+                .disabled(runAction == nil)
+            Button("Reset Code") { resetAction?.reset() }
+                .disabled(resetAction == nil)
+            Divider()
+            Button("Previous Lesson") { model.go(by: -1) }.keyboardShortcut("[", modifiers: .command)
+            Button("Next Lesson") { model.go(by: 1) }.keyboardShortcut("]", modifiers: .command)
+            Button("Continue Where I Left Off") { model.open(model.nextLesson) }.keyboardShortcut("l", modifiers: [.command, .shift])
+            Button("Course Home") { model.open(nil) }.keyboardShortcut("h", modifiers: [.command, .shift])
+        }
+    }
+}
+
+struct SettingsView: View {
+    @Environment(AppModel.self) private var model
+    @AppStorage("editorFontSize") private var fontSize = 14.0
+    @State private var confirmReset = false
+
+    var body: some View {
+        Form {
+            Section("Editor") {
+                Slider(value: $fontSize, in: 11...24, step: 1) { Text("Code size: \(Int(fontSize)) pt") }
+            }
+            Section("Swift") {
+                RunnerStatus()
+            }
+            Section("Progress") {
+                Text("\(model.progress.count(in: model.course.lessons)) of \(model.course.lessons.count) lessons done")
+                Button("Start the course again…", role: .destructive) { confirmReset = true }
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 460)
+        .confirmationDialog("Start the course again?", isPresented: $confirmReset) {
+            Button("Forget my progress and code", role: .destructive) { model.progress.resetAll() }
+        } message: {
+            Text("Every finished lesson and all your code will be forgotten. This cannot be undone.")
+        }
+    }
+}
+#endif
