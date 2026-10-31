@@ -6,6 +6,7 @@
 #                                      also notarize and staple (see README: Signing and notarizing)
 #   STORE=1 tools/build-app.sh           the Mac App Store build instead: sandboxed, signed with Apple Distribution,
 #                                      as build/appstore/Swift-Zero-to-Hero-<version>.pkg (see README: Mac App Store)
+#   STORE=1 UPLOAD=1 tools/build-app.sh  also upload it to App Store Connect through Xcode
 #
 # Signing: uses SIGN_IDENTITY if set, else the first "Developer ID Application" certificate in the keychain, else an
 # ad-hoc signature (fine on this Mac, but other Macs will warn). The app runs with the hardened runtime.
@@ -86,7 +87,53 @@ ENTS
   codesign --verify --deep --strict --verbose=1 "$APP"
   PKG="$OUT/Swift-Zero-to-Hero-$VERSION.pkg"
   productbuild --component "$APP" /Applications --sign "$PKG_ID" --timestamp "$PKG"
-  echo "Built $PKG (upload it with: xcrun altool --upload-package, or the Transporter app)"
+  echo "Built $PKG"
+  if [ -n "${UPLOAD:-}" ]; then
+    # Xcode uploads an archive with the account signed in to Xcode, so no password is needed here
+    ARCHIVE="$OUT/SwiftZeroToHero.xcarchive"
+    rm -rf "$ARCHIVE" "$OUT/export" && mkdir -p "$ARCHIVE/Products/Applications"
+    cp -R "$APP" "$ARCHIVE/Products/Applications/"
+    cat > "$ARCHIVE/Info.plist" <<ARCH
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>ApplicationProperties</key>
+  <dict>
+    <key>ApplicationPath</key><string>Applications/$APP_NAME.app</string>
+    <key>Architectures</key><array><string>arm64</string><string>x86_64</string></array>
+    <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
+    <key>CFBundleShortVersionString</key><string>$VERSION</string>
+    <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
+    <key>SigningIdentity</key><string>$APP_ID</string>
+    <key>Team</key><string>$TEAM_ID</string>
+  </dict>
+  <key>ArchiveVersion</key><integer>2</integer>
+  <key>CreationDate</key><date>$(date -u +%Y-%m-%dT%H:%M:%SZ)</date>
+  <key>Name</key><string>$APP_NAME</string>
+  <key>SchemeName</key><string>ZeroToHero</string>
+</dict>
+</plist>
+ARCH
+    cat > "$OUT/ExportOptions.plist" <<OPTS
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>destination</key><string>upload</string>
+  <key>teamID</key><string>$TEAM_ID</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>signingCertificate</key><string>Apple Distribution</string>
+  <key>installerSigningCertificate</key><string>3rd Party Mac Developer Installer</string>
+  <key>provisioningProfiles</key><dict><key>$BUNDLE_ID</key><string>Swift Zero to Hero Mac App Store</string></dict>
+  <key>manageAppVersionAndBuildNumber</key><false/>
+  <key>uploadSymbols</key><false/>
+</dict>
+</plist>
+OPTS
+    xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OUT/ExportOptions.plist" -exportPath "$OUT/export"
+  fi
   exit 0
 fi
 

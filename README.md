@@ -45,6 +45,24 @@ xcrun notarytool store-credentials asteria --apple-id <your Apple Account> --tea
 Then build with `NOTARY_PROFILE=asteria tools/build-app.sh`. The DMG and the app are notarized and stapled, so they
 open on any Mac without a warning.
 
+### Mac App Store
+
+```bash
+STORE=1 UPLOAD=1 tools/build-app.sh
+```
+
+This builds the sandboxed App Store version into `build/appstore/`, signs it with your "Apple Distribution" and
+"3rd Party Mac Developer Installer" certificates and the "Swift Zero to Hero Mac App Store" provisioning profile, and
+uploads it to App Store Connect through Xcode (sign in to Xcode with your Apple Account first). Each upload needs a new
+build number: the script uses the number of commits, so commit before uploading.
+
+In the App Sandbox, macOS does not let the app run a program it has just compiled, so the App Store version runs
+exercises with the compiler's interpreter instead. Check it still passes everything by signing a copy of the app with
+the sandbox entitlement and running `--self-test`.
+
+Screenshots for the store: `ZTH_SCREENSHOTS=1` opens the window at 1440 by 900 points and runs code lessons as soon as
+they open.
+
 ## Updating the course
 
 In MNLearn:
