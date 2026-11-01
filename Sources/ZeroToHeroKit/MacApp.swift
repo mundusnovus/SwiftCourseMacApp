@@ -68,27 +68,6 @@ enum Screenshots {
     }
 }
 
-struct LessonCommands: Commands {
-    let model: AppModel
-    @FocusedValue(\.runAction) private var runAction
-    @FocusedValue(\.resetAction) private var resetAction
-
-    var body: some Commands {
-        CommandMenu("Lesson") {
-            Button("Run") { runAction?.run() }
-                .keyboardShortcut(.return, modifiers: .command)
-                .disabled(runAction == nil)
-            Button("Reset Code") { resetAction?.reset() }
-                .disabled(resetAction == nil)
-            Divider()
-            Button("Previous Lesson") { model.go(by: -1) }.keyboardShortcut("[", modifiers: .command)
-            Button("Next Lesson") { model.go(by: 1) }.keyboardShortcut("]", modifiers: .command)
-            Button("Continue Where I Left Off") { model.open(model.nextLesson) }.keyboardShortcut("l", modifiers: [.command, .shift])
-            Button("Course Home") { model.open(nil) }.keyboardShortcut("h", modifiers: [.command, .shift])
-        }
-    }
-}
-
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage("editorFontSize") private var fontSize = 14.0

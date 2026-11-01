@@ -49,7 +49,9 @@ struct BlockView: View {
                 BlocksView(blocks: blocks).foregroundStyle(.secondary)
             }
         case .table(let head, let rows):
-            TableView(head: head, rows: rows)
+            ScrollView(.horizontal, showsIndicators: false) {
+                TableView(head: head, rows: rows)
+            }
         case .rule:
             Divider()
         }

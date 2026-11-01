@@ -24,6 +24,7 @@ public struct ZeroToHeroScene: Scene {
             RootView()
                 .environment(model)
         }
+        .commands { LessonCommands(model: model) }
     }
 }
 

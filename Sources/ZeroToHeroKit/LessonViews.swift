@@ -1,6 +1,9 @@
 // The lesson screens: lessons with code (instructions beside an editor, tests and a console), and reading lessons with
 // quizzes and checklists.
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 struct LessonView: View {
     let lesson: Lesson
@@ -14,21 +17,45 @@ struct LessonView: View {
 struct LessonHeader: View {
     @Environment(AppModel.self) private var model
     let lesson: Lesson
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var widthClass
+    #endif
+
+    private var compact: Bool {
+        #if os(iOS)
+        widthClass == .compact
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let place = model.course.module(of: lesson.id) {
                 Text("\(place.chapter.title)  ›  \(place.module.title)").font(.caption).foregroundStyle(.secondary)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                KindBadge(kind: lesson.type)
-                Text(lesson.title).font(.largeTitle.weight(.bold)).fixedSize(horizontal: false, vertical: true)
-                if model.progress.isDone(lesson.id) {
-                    Label("Done", systemImage: "checkmark.circle.fill").labelStyle(.iconOnly).foregroundStyle(Color.asSea).font(.title2)
-                        .accessibilityLabel("Done")
+            if compact {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        KindBadge(kind: lesson.type)
+                        if model.progress.isDone(lesson.id) { doneMark }
+                    }
+                    Text(lesson.title).font(.title.weight(.bold)).fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    KindBadge(kind: lesson.type)
+                    Text(lesson.title).font(.largeTitle.weight(.bold)).fixedSize(horizontal: false, vertical: true)
+                    if model.progress.isDone(lesson.id) { doneMark }
                 }
             }
             Text("About \(lesson.minutes) minutes").font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private var doneMark: some View {
+        Label("Done", systemImage: "checkmark.circle.fill").labelStyle(.iconOnly).foregroundStyle(Color.asSea).font(.title2)
+            .accessibilityLabel("Done")
     }
 }
 
@@ -54,19 +81,51 @@ struct KindBadge: View {
 struct LessonFooter: View {
     @Environment(AppModel.self) private var model
     let lesson: Lesson
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var widthClass
+    #endif
+
+    private var compact: Bool {
+        #if os(iOS)
+        widthClass == .compact
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         let n = model.course.neighbours(of: lesson.id)
-        HStack {
-            if let previous = n.previous {
-                Button { model.open(previous) } label: { Label(previous.title, systemImage: "chevron.left") }.buttonStyle(.borderless)
-            }
-            Spacer()
-            if let next = n.next {
-                Button { model.open(next) } label: { Label(next.title, systemImage: "chevron.right").labelStyle(TrailingIcon()) }
+        if compact {
+            VStack(alignment: .leading, spacing: 12) {
+                if let next = n.next {
+                    Button { model.open(next) } label: {
+                        Label(next.title, systemImage: "chevron.right").labelStyle(TrailingIcon())
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     .buttonStyle(.glassProminent)
+                }
+                if let previous = n.previous {
+                    Button { model.open(previous) } label: {
+                        Label(previous.title, systemImage: "chevron.left")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.borderless)
+                }
             }
+            .padding(.top, 20)
+        } else {
+            HStack {
+                if let previous = n.previous {
+                    Button { model.open(previous) } label: { Label(previous.title, systemImage: "chevron.left") }.buttonStyle(.borderless)
+                }
+                Spacer()
+                if let next = n.next {
+                    Button { model.open(next) } label: { Label(next.title, systemImage: "chevron.right").labelStyle(TrailingIcon()) }
+                        .buttonStyle(.glassProminent)
+                }
+            }
+            .padding(.top, 20)
         }
-        .padding(.top, 20)
     }
 }
 
@@ -80,7 +139,11 @@ struct TrailingIcon: LabelStyle {
 
 struct CodeLessonView: View {
     @Environment(AppModel.self) private var model
+    #if os(iOS)
+    @AppStorage("editorFontSize") private var fontSize = 15.0
+    #else
     @AppStorage("editorFontSize") private var fontSize = 14.0
+    #endif
     let lesson: Lesson
     @State private var code = ""
     @State private var result: RunResult?
@@ -88,9 +151,18 @@ struct CodeLessonView: View {
     @State private var problem: String?
     @State private var hintsShown = 0
     @State private var showingCode = false   // iPhone: which half is on screen
+    @State private var scrollLine: Int?
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
+
+    private var compact: Bool {
+        #if os(iOS)
+        sizeClass == .compact
+        #else
+        false
+        #endif
+    }
 
     var body: some View {
         Group {
@@ -103,9 +175,9 @@ struct CodeLessonView: View {
             if sizeClass == .regular {
                 // iPad: the lesson and the code side by side, like the Mac
                 HStack(spacing: 0) {
-                    instructions.frame(maxWidth: .infinity)
+                    instructions.frame(maxWidth: .infinity, maxHeight: .infinity)
                     Divider()
-                    workspace.frame(maxWidth: .infinity)
+                    workspace.frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
                 VStack(spacing: 0) {
@@ -113,8 +185,14 @@ struct CodeLessonView: View {
                         Text("Lesson").tag(false)
                         Text("Code").tag(true)
                     }
-                    .pickerStyle(.segmented).padding()
-                    if showingCode { workspace } else { instructions }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    if showingCode {
+                        workspace.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        instructions.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
             }
             #endif
@@ -162,7 +240,7 @@ struct CodeLessonView: View {
                 }
                 LessonFooter(lesson: lesson)
             }
-            .padding(28)
+            .padding(compact ? 16 : 28)
             .frame(maxWidth: 760, alignment: .leading)
         }
     }
@@ -185,9 +263,19 @@ struct CodeLessonView: View {
             .padding(.horizontal, 14).padding(.vertical, 10)
             .background(Color.editorBackground)
             .environment(\.colorScheme, .dark)
-            CodeEditor(text: $code, errorLines: Set(result?.errors.compactMap(\.line) ?? []), fontSize: fontSize)
-            ConsoleView(result: result, running: running, problem: problem, onLine: { _ in })
-                .frame(minHeight: 140, idealHeight: 220)
+            Group {
+                #if os(iOS)
+                CodeEditor(text: $code, errorLines: Set(result?.errors.compactMap(\.line) ?? []), fontSize: fontSize, scrollToLine: $scrollLine, onRun: run)
+                #else
+                CodeEditor(text: $code, errorLines: Set(result?.errors.compactMap(\.line) ?? []), fontSize: fontSize, scrollToLine: $scrollLine)
+                #endif
+            }
+            .layoutPriority(1)
+            ConsoleView(result: result, running: running, problem: problem, showsTests: compact, compact: compact, onLine: { line in
+                showingCode = true
+                scrollLine = line
+            })
+                .frame(minHeight: compact ? 88 : 140, idealHeight: compact ? 130 : 220, maxHeight: compact ? 170 : 280)
             if result?.passed == true, let next = model.course.neighbours(of: lesson.id).next {
                 HStack {
                     Label("Every test passes. Lesson done.", systemImage: "checkmark.seal.fill").foregroundStyle(Color.asPass).fontWeight(.semibold)
@@ -199,14 +287,23 @@ struct CodeLessonView: View {
                 .environment(\.colorScheme, .dark)
             }
         }
+        .background(Color.editorBackground)
     }
 
     func run() {
         guard !running else { return }
+        showingCode = true
+        #if os(iOS)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
         guard let runner = model.runner else {
             problem = {
                 if case .unavailable(let why) = model.runnerState { return why }
+                #if os(iOS)
+                return "Your code runs on Asteria Learn. Check your connection and try again."
+                #else
                 return "Still looking for the Swift compiler. Try again in a moment."
+                #endif
             }()
             return
         }
@@ -216,6 +313,7 @@ struct CodeLessonView: View {
             do {
                 let r = try await runner.check(lesson, code: code)
                 result = r
+                if let line = r.errors.compactMap(\.line).first { scrollLine = line }
                 if r.passed {
                     model.progress.complete(lesson.id)
                     model.say("Lesson done")
@@ -258,6 +356,8 @@ struct ConsoleView: View {
     let result: RunResult?
     let running: Bool
     let problem: String?
+    var showsTests = false
+    var compact = false
     let onLine: (Int) -> Void
 
     var body: some View {
@@ -288,17 +388,39 @@ struct ConsoleView: View {
             if !r.compiled {
                 Text(r.timedOut ? "Compiling took too long." : "Your code did not compile:").foregroundStyle(Color(hex: 0xff9b85))
                 ForEach(r.errors, id: \.self) { e in
-                    Text((e.line.map { "line \($0): " } ?? "") + e.message).foregroundStyle(Color(hex: 0xff9b85))
+                    errorLine(e)
                 }
             } else {
                 if !r.output.isEmpty { Text(r.output) }
                 if r.timedOut { Text("Your program ran for too long and was stopped. Is there a loop that never ends?").foregroundStyle(Color(hex: 0xff9b85)) }
                 else if r.crashed { Text("Your program crashed: \(r.crashReason)").foregroundStyle(Color(hex: 0xff9b85)) }
                 if r.output.isEmpty && !r.timedOut && !r.crashed { Text("(Nothing was printed.)").foregroundStyle(.secondary) }
+                if showsTests {
+                    ForEach(Array(r.tests.enumerated()), id: \.offset) { _, test in
+                        Text((test.passed ? "Passed  " : "Failed  ") + test.text)
+                            .foregroundStyle(test.passed ? Color.asPass : Color(hex: 0xff9b85))
+                    }
+                }
                 if r.passed { Text("Every test passes.").foregroundStyle(Color.asPass).padding(.top, 6) }
             }
         } else {
-            Text("Press Run (⌘↩) to check your code.").foregroundStyle(.secondary)
+            Text(compact ? "Press Run to check your code." : "Press Run (⌘↩) to check your code.").foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder func errorLine(_ error: RunResult.CompilerError) -> some View {
+        let message = (error.line.map { "line \($0): " } ?? "") + error.message
+        if let line = error.line {
+            Button { onLine(line) } label: {
+                Text(message)
+                    .foregroundStyle(Color(hex: 0xff9b85))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Error on line \(line). \(error.message)")
+        } else {
+            Text(message).foregroundStyle(Color(hex: 0xff9b85))
         }
     }
 }
@@ -308,6 +430,17 @@ struct ConsoleView: View {
 struct ReadingLessonView: View {
     @Environment(AppModel.self) private var model
     let lesson: Lesson
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var widthClass
+    #endif
+
+    private var compact: Bool {
+        #if os(iOS)
+        widthClass == .compact
+        #else
+        false
+        #endif
+    }
 
     var body: some View {
         ScrollView {
@@ -322,7 +455,7 @@ struct ReadingLessonView: View {
                 }
                 LessonFooter(lesson: lesson)
             }
-            .padding(28)
+            .padding(compact ? 16 : 28)
             .frame(maxWidth: 760, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -426,6 +559,27 @@ struct QuizView: View {
 }
 
 // MARK: - menu commands reach the lesson on screen
+
+struct LessonCommands: Commands {
+    let model: AppModel
+    @FocusedValue(\.runAction) private var runAction
+    @FocusedValue(\.resetAction) private var resetAction
+
+    var body: some Commands {
+        CommandMenu("Lesson") {
+            Button("Run") { runAction?.run() }
+                .keyboardShortcut(.return, modifiers: .command)
+                .disabled(runAction == nil)
+            Button("Reset Code") { resetAction?.reset() }
+                .disabled(resetAction == nil)
+            Divider()
+            Button("Previous Lesson") { model.go(by: -1) }.keyboardShortcut("[", modifiers: .command)
+            Button("Next Lesson") { model.go(by: 1) }.keyboardShortcut("]", modifiers: .command)
+            Button("Continue Where I Left Off") { model.open(model.nextLesson) }.keyboardShortcut("l", modifiers: [.command, .shift])
+            Button("Course Home") { model.open(nil) }.keyboardShortcut("h", modifiers: [.command, .shift])
+        }
+    }
+}
 
 struct RunAction { let run: () -> Void }
 struct ResetAction { let reset: () -> Void }
