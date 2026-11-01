@@ -264,10 +264,11 @@ struct CodeEditor: UIViewRepresentable {
 
         let current = view.textView.text ?? ""
         if current != text {
-            let undo = view.textView.undoManager
-            undo?.disableUndoRegistration()
+            // Setting the text fires textViewDidChange. Colouring from there toggles undo registration, and
+            // UITextUndoManager crashes if that toggle is nested inside another one. Replace the text first, then colour once.
+            coordinator.replacing = true
             view.textView.text = text
-            undo?.enableUndoRegistration()
+            coordinator.replacing = false
             coordinator.colour(view.textView)
         } else if coordinator.appliedFont != fontSize || coordinator.appliedErrors != errorLines {
             coordinator.colour(view.textView)
@@ -295,6 +296,7 @@ struct CodeEditor: UIViewRepresentable {
         var appliedFont: CGFloat = -1
         var appliedErrors: Set<Int> = []
         var revealedLine: Int?
+        var replacing = false
         private var colouring = false
 
         init(_ parent: CodeEditor) { self.parent = parent }
@@ -314,7 +316,7 @@ struct CodeEditor: UIViewRepresentable {
         }
 
         func textViewDidChange(_ view: UITextView) {
-            guard !colouring else { return }
+            guard !colouring, !replacing else { return }
             parent.text = view.text ?? ""
             if view.markedTextRange == nil { colour(view) }
             editor?.gutter.setNeedsDisplay()

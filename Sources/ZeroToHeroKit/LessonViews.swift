@@ -169,29 +169,32 @@ struct CodeLessonView: View {
             #if os(macOS)
             HSplitView {
                 instructions.frame(minWidth: 320, idealWidth: 460)
-                workspace.frame(minWidth: 380)
+                workspace().frame(minWidth: 380)
             }
             #else
-            if sizeClass == .regular {
-                // iPad: the lesson and the code side by side, like the Mac
-                HStack(spacing: 0) {
-                    instructions.frame(maxWidth: .infinity, maxHeight: .infinity)
-                    Divider()
-                    workspace.frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            } else {
-                VStack(spacing: 0) {
-                    Picker("Show", selection: $showingCode) {
-                        Text("Lesson").tag(false)
-                        Text("Code").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    if showingCode {
-                        workspace.frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
+            // Side by side needs room for the lesson and a real editor. A portrait iPad's detail column is too
+            // narrow for both, so it uses the same Lesson / Code switch as the iPhone.
+            GeometryReader { geo in
+                if geo.size.width >= 700 {
+                    HStack(spacing: 0) {
                         instructions.frame(maxWidth: .infinity, maxHeight: .infinity)
+                        Divider()
+                        workspace().frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        Picker("Show", selection: $showingCode) {
+                            Text("Lesson").tag(false)
+                            Text("Code").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        if showingCode {
+                            workspace(stacked: true).frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            instructions.frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
                     }
                 }
             }
@@ -245,15 +248,16 @@ struct CodeLessonView: View {
         }
     }
 
-    var workspace: some View {
+    func workspace(stacked: Bool = false) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Text("main.swift").font(.system(.callout, design: .monospaced)).foregroundStyle(.secondary)
-                Spacer()
-                Button("Reset", action: reset).buttonStyle(.borderless)
+                Text("main.swift").font(.system(.callout, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
+                Spacer(minLength: 8)
+                Button("Reset", action: reset).buttonStyle(.borderless).fixedSize()
                 Button(action: run) {
                     if running { ProgressView().controlSize(.small) } else { Label("Run", systemImage: "play.fill") }
                 }
+                .fixedSize()
                 .buttonStyle(.glassProminent)
                 .tint(Color.asSea)
                 .keyboardShortcut(.return, modifiers: .command)
@@ -271,7 +275,7 @@ struct CodeLessonView: View {
                 #endif
             }
             .layoutPriority(1)
-            ConsoleView(result: result, running: running, problem: problem, showsTests: compact, compact: compact, onLine: { line in
+            ConsoleView(result: result, running: running, problem: problem, showsTests: stacked || compact, compact: compact, onLine: { line in
                 showingCode = true
                 scrollLine = line
             })
