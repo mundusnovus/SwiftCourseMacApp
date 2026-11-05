@@ -102,7 +102,7 @@ struct LessonFooter: View {
                         Label(next.title, systemImage: "chevron.right").labelStyle(TrailingIcon())
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.glassProminent).onAccentLabel()
                 }
                 if let previous = n.previous {
                     Button { model.open(previous) } label: {
@@ -121,7 +121,7 @@ struct LessonFooter: View {
                 Spacer()
                 if let next = n.next {
                     Button { model.open(next) } label: { Label(next.title, systemImage: "chevron.right").labelStyle(TrailingIcon()) }
-                        .buttonStyle(.glassProminent)
+                        .buttonStyle(.glassProminent).onAccentLabel()
                 }
             }
             .padding(.top, 20)
@@ -258,7 +258,7 @@ struct CodeLessonView: View {
                     if running { ProgressView().controlSize(.small) } else { Label("Run", systemImage: "play.fill") }
                 }
                 .fixedSize()
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.glassProminent).onAccentLabel()
                 .tint(Color.asSea)
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(running)
@@ -284,7 +284,7 @@ struct CodeLessonView: View {
                 HStack {
                     Label("Every test passes. Lesson done.", systemImage: "checkmark.seal.fill").foregroundStyle(Color.asPass).fontWeight(.semibold)
                     Spacer()
-                    Button("Next: \(next.title)") { model.open(next) }.buttonStyle(.glassProminent)
+                    Button("Next: \(next.title)") { model.open(next) }.buttonStyle(.glassProminent).onAccentLabel()
                 }
                 .padding(12)
                 .background(Color.editorBackground)
@@ -378,31 +378,31 @@ struct ConsoleView: View {
                 .padding(14)
             }
         }
-        .background(Color(hex: 0x0a1418))
+        .background(Color.consoleBackground)
         .foregroundStyle(Color.editorText)
         .environment(\.colorScheme, .dark)
     }
 
     @ViewBuilder var content: some View {
         if let problem {
-            Text(problem).foregroundStyle(Color(hex: 0xff9b85))
+            Text(problem).foregroundStyle(Color.consoleProblem)
         } else if running {
             Text("Compiling and running your code…").foregroundStyle(.secondary)
         } else if let r = result {
             if !r.compiled {
-                Text(r.timedOut ? "Compiling took too long." : "Your code did not compile:").foregroundStyle(Color(hex: 0xff9b85))
+                Text(r.timedOut ? "Compiling took too long." : "Your code did not compile:").foregroundStyle(Color.consoleProblem)
                 ForEach(r.errors, id: \.self) { e in
                     errorLine(e)
                 }
             } else {
                 if !r.output.isEmpty { Text(r.output) }
-                if r.timedOut { Text("Your program ran for too long and was stopped. Is there a loop that never ends?").foregroundStyle(Color(hex: 0xff9b85)) }
-                else if r.crashed { Text("Your program crashed: \(r.crashReason)").foregroundStyle(Color(hex: 0xff9b85)) }
+                if r.timedOut { Text("Your program ran for too long and was stopped. Is there a loop that never ends?").foregroundStyle(Color.consoleProblem) }
+                else if r.crashed { Text("Your program crashed: \(r.crashReason)").foregroundStyle(Color.consoleProblem) }
                 if r.output.isEmpty && !r.timedOut && !r.crashed { Text("(Nothing was printed.)").foregroundStyle(.secondary) }
                 if showsTests {
                     ForEach(Array(r.tests.enumerated()), id: \.offset) { _, test in
                         Text((test.passed ? "Passed  " : "Failed  ") + test.text)
-                            .foregroundStyle(test.passed ? Color.asPass : Color(hex: 0xff9b85))
+                            .foregroundStyle(test.passed ? Color.asPass : Color.consoleProblem)
                     }
                 }
                 if r.passed { Text("Every test passes.").foregroundStyle(Color.asPass).padding(.top, 6) }
@@ -417,14 +417,14 @@ struct ConsoleView: View {
         if let line = error.line {
             Button { onLine(line) } label: {
                 Text(message)
-                    .foregroundStyle(Color(hex: 0xff9b85))
+                    .foregroundStyle(Color.consoleProblem)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .multilineTextAlignment(.leading)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Error on line \(line). \(error.message)")
         } else {
-            Text(message).foregroundStyle(Color(hex: 0xff9b85))
+            Text(message).foregroundStyle(Color.consoleProblem)
         }
     }
 }
@@ -455,7 +455,7 @@ struct ReadingLessonView: View {
                 if !lesson.checklist.isEmpty { ChecklistView(lesson: lesson) }
                 if !lesson.questions.isEmpty { QuizView(lesson: lesson) }
                 if lesson.checklist.isEmpty && lesson.questions.isEmpty && !model.progress.isDone(lesson.id) {
-                    Button("Mark as read") { model.progress.complete(lesson.id) }.buttonStyle(.glassProminent)
+                    Button("Mark as read") { model.progress.complete(lesson.id) }.buttonStyle(.glassProminent).onAccentLabel()
                 }
                 LessonFooter(lesson: lesson)
             }
@@ -486,7 +486,7 @@ struct ChecklistView: View {
             }
             if lesson.questions.isEmpty && !model.progress.isDone(lesson.id) {
                 Button("Mark as done") { model.progress.complete(lesson.id); model.say("Lesson done") }
-                    .buttonStyle(.glassProminent).disabled(!allTicked)
+                    .buttonStyle(.glassProminent).onAccentLabel().disabled(!allTicked)
             } else if !lesson.questions.isEmpty && !model.progress.isDone(lesson.id) {
                 Text("Tick these off, then answer the questions below to finish.").font(.callout).foregroundStyle(.secondary)
             }
@@ -533,7 +533,7 @@ struct QuizView: View {
             }
             HStack {
                 Button(model.progress.isDone(lesson.id) ? "Check again" : "Check my answers", action: check)
-                    .buttonStyle(.glassProminent).disabled(picks.count < lesson.questions.count)
+                    .buttonStyle(.glassProminent).onAccentLabel().disabled(picks.count < lesson.questions.count)
                 if checked, allRight { Label("All right.", systemImage: "checkmark.seal.fill").foregroundStyle(Color.asPass) }
             }
         }

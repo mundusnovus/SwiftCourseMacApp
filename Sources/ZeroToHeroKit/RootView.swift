@@ -165,9 +165,10 @@ struct PhoneCourseScreen: View {
         let all = model.course.lessons
         let done = model.progress.count(in: all)
         return VStack(alignment: .leading, spacing: 12) {
+            Wordmark(size: 18)
             Text(model.course.versions.uppercased())
                 .font(.caption.weight(.bold)).tracking(1.1).foregroundStyle(Color.asGold)
-            Text("Swift: Zero to Hero").font(.display(32)).fixedSize(horizontal: false, vertical: true)
+            Text("Swift: Zero to Hero").font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
             ProgressView(value: Double(done), total: Double(max(all.count, 1))) {
                 Text(done == 0 ? "\(all.count) lessons" : "\(done) of \(all.count) lessons done")
             }
@@ -179,7 +180,7 @@ struct PhoneCourseScreen: View {
                         .lineLimit(2)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.glassProminent).onAccentLabel()
             } else {
                 Label("You finished the course.", systemImage: "star.fill").foregroundStyle(Color.asGold)
             }
@@ -289,7 +290,7 @@ struct CourseSidebar: View {
         @Bindable var model = model
         List(selection: $model.selection) {
             Button { model.open(nil) } label: {
-                Label { Text("Swift: Zero to Hero") } icon: { Image(systemName: "house").foregroundStyle(Color.asSea) }
+                Label { Text("Swift: Zero to Hero") } icon: { Image(systemName: "house").symbol().foregroundStyle(Color.asSea) }
             }
             .buttonStyle(.plain)
             if search.isEmpty || hasMatch {
@@ -388,8 +389,9 @@ struct HomeView: View {
         let chapterCount = model.course.chapters.count
         ScrollView {
             VStack(alignment: .leading, spacing: compact ? 16 : 22) {
+                Wordmark(size: compact ? 18 : 22)
                 Text(model.course.versions.uppercased()).font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(Color.asGold)
-                Text("Swift: Zero to Hero").font(.display(compact ? 36 : 56)).fixedSize(horizontal: false, vertical: true)
+                Text("Swift: Zero to Hero").font(compact ? .largeTitle.bold() : .display(52)).fixedSize(horizontal: false, vertical: true)
                 Text(model.course.subtitle).font(compact ? .body : .title3).foregroundStyle(.secondary)
                 ProgressView(value: Double(done), total: Double(max(all.count, 1))) {
                     Text(done == 0 ? "\(all.count) lessons in \(chapterCount) chapters" : "\(done) of \(all.count) lessons done")
@@ -402,7 +404,7 @@ struct HomeView: View {
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                     }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.glassProminent).onAccentLabel()
                     .controlSize(.large)
                     .frame(maxWidth: compact ? .infinity : 520, alignment: .leading)
                 } else {
@@ -422,7 +424,7 @@ struct HomeView: View {
                         ForEach(Array(model.course.chapters.enumerated()), id: \.offset) { i, chapter in
                             let lessons = chapter.modules.flatMap(\.lessons)
                             GridRow {
-                                Text(String(format: "%02d", i + 1)).font(.display(22)).foregroundStyle(Color.asGold)
+                                Text(String(format: "%02d", i + 1)).font(.title2.weight(.bold)).monospacedDigit().foregroundStyle(Color.asGold)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(chapter.title).font(.headline)
                                     Text(chapter.summary).font(.callout).foregroundStyle(.secondary)
@@ -443,7 +445,7 @@ struct HomeView: View {
     private func chapterRow(_ index: Int, _ chapter: Chapter) -> some View {
         let lessons = chapter.modules.flatMap(\.lessons)
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(String(format: "%02d", index + 1)).font(.display(22)).foregroundStyle(Color.asGold).frame(width: 40, alignment: .leading)
+            Text(String(format: "%02d", index + 1)).font(.title2.weight(.bold)).monospacedDigit().foregroundStyle(Color.asGold).frame(width: 40, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(chapter.title).font(.headline)
                 Text(chapter.summary).font(.callout).foregroundStyle(.secondary)

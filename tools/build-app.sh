@@ -39,7 +39,15 @@ BIN="$(swift build -c release "${ARCHS[@]}" --show-bin-path)/ZeroToHero"
 
 rm -rf "$APP" && mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/ZeroToHero"
-cp Resources/course.json Resources/AsteriaPixel-Regular.ttf Resources/AppIcon.icns "$APP/Contents/Resources/"
+cp Resources/course.json Resources/AsteriaPixel-Regular.ttf "$APP/Contents/Resources/"
+# actool resolves relative paths against its input, so the paths are absolute.
+# The Liquid Glass icon (with dark, clear and tinted versions) compiles from Resources/AppIcon.icon into Assets.car.
+# Without actool, the flat AppIcon.icns rendered from the same file is used.
+if xcrun --find actool >/dev/null 2>&1; then
+  xcrun actool "$PWD/Resources/AppIcon.icon" --compile "$PWD/$APP/Contents/Resources" --app-icon AppIcon --platform macosx \
+    --minimum-deployment-target 26.0 --output-partial-info-plist "$PWD/$OUT/icon-partial.plist" >/dev/null
+fi
+[ -f "$APP/Contents/Resources/AppIcon.icns" ] || cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 cp LICENSE "$APP/Contents/Resources/LICENSE.txt"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -51,6 +59,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleExecutable</key><string>ZeroToHero</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleIconName</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>

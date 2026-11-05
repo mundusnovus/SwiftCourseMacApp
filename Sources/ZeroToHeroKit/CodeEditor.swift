@@ -607,7 +607,7 @@ final class SymbolBar: UIView {
         var runConfig = UIButton.Configuration.filled()
         runConfig.title = "Run"
         runConfig.baseBackgroundColor = UIColor(Color.asSea)
-        runConfig.baseForegroundColor = .white
+        runConfig.baseForegroundColor = UIColor(Color.onAccent)
         runConfig.cornerStyle = .capsule
         runConfig.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
         runButton.configuration = runConfig

@@ -59,6 +59,12 @@ enum Screenshots {
     static let on = ProcessInfo.processInfo.environment["ZTH_SCREENSHOTS"] != nil
     static func sizeWindow() {
         guard on else { return }
+        // ZTH_APPEARANCE=light or dark captures one appearance without changing the Mac's own setting.
+        switch ProcessInfo.processInfo.environment["ZTH_APPEARANCE"] {
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        default: break
+        }
         DispatchQueue.main.async {
             guard let window = NSApp.windows.first(where: { $0.isVisible }) else { return }
             window.setFrame(NSRect(x: 40, y: 40, width: 1440, height: 900), display: true)

@@ -7,6 +7,17 @@ Swift compiler, so your code never leaves the computer and the course works offl
 The course is the same one as on [Asteria Learn](https://learn.asteria.technology). It is exported from the MNLearn
 repository into `Resources/course.json`.
 
+## Version 26.11.1: the Asteria 26 look
+
+Aqua on night with heavy for highlights. The accent is deep aqua `#00826B` in light and aqua `#00FFD3` in dark, so
+tinted text keeps 4.5:1; labels on an accent fill use `onAccent`. Titles are SF Pro; Asteria Pixel is only for the
+word "Asteria". The new icon is an Icon Composer document, `Resources/AppIcon.icon`, with dark, clear and tinted
+versions; `tools/build-app.sh` compiles it with `actool`, and `Resources/AppIcon.icns` is the flat fallback.
+`tools/make-icon.py` regenerates the icon's layers.
+
+For screenshots, `ZTH_SCREENSHOTS=1 ZTH_APPEARANCE=dark` (or `light`) sizes the window and picks the appearance
+without changing the Mac's own setting.
+
 ## What you need
 
 - macOS 26 or later.
