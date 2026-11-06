@@ -19,6 +19,7 @@ struct ZeroToHeroMacApp: App {
 
     init() {
         _ = Fonts.registered
+        AsteriaIntelligence.configure(appName: "Swift: Zero to Hero", privacyURL: URL(string: "https://asteria.technology/privacy/")!)
         guard let course = try? Course.load() else { fatalError("The course is missing from the app.") }
         _model = State(initialValue: AppModel(course: course))
     }
@@ -27,11 +28,17 @@ struct ZeroToHeroMacApp: App {
         WindowGroup("Swift: Zero to Hero", id: "course") {
             RootView()
                 .environment(model)
+                .asteriaIntelligencePermission()
                 .frame(minWidth: 980, minHeight: 640)
                 .task { await findCompiler() }
                 .onAppear { Screenshots.sizeWindow() }
         }
         .commands { LessonCommands(model: model) }
+
+        Window("Asteria", id: "asteria") {
+            AsteriaWindow()
+        }
+        .defaultSize(width: 520, height: 680)
 
         Settings {
             SettingsView().environment(model)
@@ -87,6 +94,8 @@ struct SettingsView: View {
             Section("Swift") {
                 RunnerStatus()
             }
+            AsteriaAccountSection { MacChats.asteria.forgetOnThisDevice() }
+            AsteriaIntelligenceSettingsSection()
             Section("Progress") {
                 Text("\(model.progress.count(in: model.course.lessons)) of \(model.course.lessons.count) lessons done")
                 Button("Start the course again…", role: .destructive) { confirmReset = true }

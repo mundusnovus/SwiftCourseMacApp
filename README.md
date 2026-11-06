@@ -7,6 +7,15 @@ Swift compiler, so your code never leaves the computer and the course works offl
 The course is the same one as on [Asteria Learn](https://learn.asteria.technology). It is exported from the MNLearn
 repository into `Resources/course.json`.
 
+## Version 27.2: Asteria Intelligence and the Asteria Account
+
+Ask Asteria (the toolbar's sparkle, or its own window) about Swift and the lesson you're on: the assistant in every
+Asteria app, on Asteria Intelligence, with chats that follow your Asteria Account into every Asteria app. Settings has
+the Asteria Account (sign in with your username, or make one) and the Asteria Intelligence switch. The shared code is
+`Sources/ZeroToHeroKit/Intelligence`, copied from Asteria Search by `tools/sync-intelligence.sh`. Signed with Developer
+ID (no provisioning profile), the app keeps its sign-in in the login keychain and can't pick up a sign-in from the other
+Asteria apps; the Mac App Store build can.
+
 ## Version 26.11.1: the Asteria 26 look
 
 Aqua on night with heavy for highlights. The accent is deep aqua `#00826B` in light and aqua `#00FFD3` in dark, so
@@ -20,7 +29,7 @@ without changing the Mac's own setting.
 
 ## What you need
 
-- macOS 26 or later.
+- macOS 27 or later.
 - Apple's free Command Line Tools, or Xcode, for the compiler. The app offers to install them if they are missing.
 
 ## Building

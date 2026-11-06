@@ -73,8 +73,11 @@ struct SplitCourseScreen: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Settings", systemImage: "gearshape") { showSettings = true }
                 }
+                #else
+                ToolbarItem(placement: .primaryAction) { AskAsteriaButton() }
                 #endif
             }
+            .onChange(of: model.selection, initial: true) { MacChats.openLesson = model.selectedLesson }
         }
         #if os(iOS)
         .sheet(isPresented: $showSettings) { IOSSettingsView() }

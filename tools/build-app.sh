@@ -23,15 +23,13 @@ SIGNING="$HOME/Library/Application Support/Asteria Signing"
 PROFILE="${PROFILE:-$SIGNING/zerotohero-macappstore.provisionprofile}"
 APP="$OUT/$APP_NAME.app"
 
-# Without full Xcode, SwiftUI's macros are missing from the macOS 27 SDK, so build against 26.5 (the app needs 26 anyway)
+# The app needs macOS 27 (Asteria Intelligence is a FoundationModels model), and SwiftUI's macros come only with full
+# Xcode 27, not the Command Line Tools.
 if ! xcodebuild -version >/dev/null 2>&1; then
-  for sdk in /Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk /Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk; do
-    [ -d "$sdk" ] && export SDKROOT="$sdk" && break
-  done
-  ARCHS=(--arch arm64)
-else
-  ARCHS=(--arch arm64 --arch x86_64)
+  echo "build-app: needs Xcode 27 (the Command Line Tools' SDK has no SwiftUI macros)" >&2
+  exit 1
 fi
+ARCHS=(--arch arm64 --arch x86_64)
 
 echo "Building $APP_NAME $VERSION ($BUILD_NUMBER)…"
 swift build -c release "${ARCHS[@]}"
