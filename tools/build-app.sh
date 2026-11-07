@@ -67,6 +67,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key><true/>
   <key>NSSupportsAutomaticTermination</key><true/>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
+  <key>NSMicrophoneUsageDescription</key><string>Swift: Zero to Hero uses the microphone when you talk to Smartz.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>Swift: Zero to Hero shows your words on screen while you talk to Smartz, on this device.</string>
 </dict>
 </plist>
 PLIST
@@ -82,6 +84,7 @@ if [ -n "${STORE:-}" ]; then
 <plist version="1.0">
 <dict>
   <key>com.apple.security.app-sandbox</key><true/>
+  <key>com.apple.security.device.audio-input</key><true/>
   <key>com.apple.application-identifier</key><string>$TEAM_ID.$BUNDLE_ID</string>
   <key>com.apple.developer.team-identifier</key><string>$TEAM_ID</string>
 </dict>

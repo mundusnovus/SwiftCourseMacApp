@@ -19,7 +19,7 @@ struct ZeroToHeroMacApp: App {
 
     init() {
         _ = Fonts.registered
-        AsteriaIntelligence.configure(appName: "Swift: Zero to Hero", privacyURL: URL(string: "https://asteria.technology/privacy/")!)
+        Smartz.configure(appName: "Swift: Zero to Hero", privacyURL: URL(string: "https://asteria.technology/privacy/")!)
         guard let course = try? Course.load() else { fatalError("The course is missing from the app.") }
         _model = State(initialValue: AppModel(course: course))
     }
@@ -28,14 +28,14 @@ struct ZeroToHeroMacApp: App {
         WindowGroup("Swift: Zero to Hero", id: "course") {
             RootView()
                 .environment(model)
-                .asteriaIntelligencePermission()
+                .smartzPermission()
                 .frame(minWidth: 980, minHeight: 640)
                 .task { await findCompiler() }
                 .onAppear { Screenshots.sizeWindow() }
         }
         .commands { LessonCommands(model: model) }
 
-        Window("Asteria", id: "asteria") {
+        Window("Smartz", id: "asteria") {
             AsteriaWindow()
         }
         .defaultSize(width: 520, height: 680)
@@ -87,6 +87,12 @@ struct SettingsView: View {
     @State private var confirmReset = false
 
     var body: some View {
+        // A stack, so the Smartz and account links (voice, what Smartz knows, the subscription) open in place.
+        NavigationStack { form }
+            .frame(width: 460, height: 620)
+    }
+
+    private var form: some View {
         Form {
             Section("Editor") {
                 Slider(value: $fontSize, in: 11...24, step: 1) { Text("Code size: \(Int(fontSize)) pt") }
@@ -94,15 +100,16 @@ struct SettingsView: View {
             Section("Swift") {
                 RunnerStatus()
             }
-            AsteriaAccountSection { MacChats.asteria.forgetOnThisDevice() }
-            AsteriaIntelligenceSettingsSection()
+            AsteriaAccountSection { MacChats.smartz.forgetOnThisDevice() }
+            SmartzSettingsSection()
+            SmartzVoiceSection()
+            SmartzLearningSection()
             Section("Progress") {
                 Text("\(model.progress.count(in: model.course.lessons)) of \(model.course.lessons.count) lessons done")
                 Button("Start the course again…", role: .destructive) { confirmReset = true }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460)
         .confirmationDialog("Start the course again?", isPresented: $confirmReset) {
             Button("Forget my progress and code", role: .destructive) { model.progress.resetAll() }
         } message: {

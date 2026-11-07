@@ -1,14 +1,14 @@
 // Asteria on the Mac: the assistant in every Asteria app, in a window of her own, with the open lesson in view. She
 // explains, answers questions and gives hints; the course's tests stay the judge. The chat follows the Asteria Account
-// into every Asteria app (Intelligence/AsteriaIntelligenceChat).
+// into every Asteria app (Intelligence/SmartzChat.swift).
 import SwiftUI
 
 @MainActor
 enum MacChats {
     static var openLesson: Lesson?
 
-    static let asteria = AsteriaChats(agent: .asteria(
-        greeting: "Hi, I'm Asteria. Ask me anything about Swift, or about the lesson you're on.",
+    static let smartz = SmartzChats(agent: .smartz(
+        greeting: "Hi, I'm Smartz. Ask me anything about Swift, or about the lesson you're on.",
         suggestions: ["Explain this lesson another way", "What's the difference between a struct and a class?", "Give me a small practice idea"],
         context: { _ in await MacChats.lessonContext() }))
 
@@ -23,25 +23,25 @@ enum MacChats {
     }
 }
 
-/// Opens Asteria's window.
+/// Opens Smartz's window.
 struct AskAsteriaButton: View {
     @Environment(\.openWindow) private var openWindow
     var body: some View {
-        Button("Ask Asteria", systemImage: "sparkle") { openWindow(id: "asteria") }
-            .help("Chat with Asteria about Swift and this lesson")
+        Button("Ask Smartz", systemImage: "sparkle") { openWindow(id: "asteria") }
+            .help("Chat with Smartz about Swift and this lesson")
     }
 }
 
-/// Asteria's window.
+/// Smartz's window.
 struct AsteriaWindow: View {
     @State private var signingIn = false
     var body: some View {
         NavigationStack {
-            AsteriaChatView(chats: MacChats.asteria) { signingIn = true }
-                .navigationTitle("Asteria")
+            SmartzChatView(chats: MacChats.smartz) { signingIn = true }
+                .navigationTitle("Smartz")
                 .sheet(isPresented: $signingIn) { AsteriaSignInView() }
         }
-        .asteriaIntelligencePermission()
+        .smartzPermission()
         .frame(minWidth: 440, minHeight: 520)
     }
 }
